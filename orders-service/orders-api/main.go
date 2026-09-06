@@ -4,8 +4,11 @@ import (
 	"context"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/joho/godotenv"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
@@ -13,7 +16,8 @@ func main() {
 		log.Fatalf("loading .env %v", err)
 	}
 
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	cfg := appConfig{
 		addr: os.Getenv("ADDR"),
@@ -36,8 +40,19 @@ func main() {
 		log.Fatalf("error while building application: %v", err)
 
 	}
-
 	defer app.db.Close()
 
-	log.Fatal(app.run(mount(app)))
+	gp, ctx := errgroup.WithContext(ctx)
+
+	gp.Go(func() error {
+		return app.pollEntryQueue(ctx, 10, 20)
+	})
+
+	gp.Go(func() error {
+		return app.run(ctx, mount(app))
+	})
+
+	if err := gp.Wait(); err != nil {
+		log.Fatalf("application error: %v", err)
+	}
 }

@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	awsSDKConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
@@ -25,14 +27,73 @@ func mount(app *app) http.Handler {
 	return r
 }
 
-func (app *app) run(handler http.Handler) error {
+func (app *app) run(ctx context.Context, handler http.Handler) error {
 	server := &http.Server{
 		Addr:    app.addr,
 		Handler: handler,
 	}
 
-	log.Printf("starting server on: %s", app.addr)
-	return server.ListenAndServe()
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			app.logger.Error("[server] Error shutting down http server", "error", err)
+		}
+	}()
+
+	app.logger.Info("[server] Starting server on", "addr", app.addr)
+	err := server.ListenAndServe()
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
+}
+
+func (app *app) pollEntryQueue(ctx context.Context, maxNumberOfMessages, waitTimeSeconds int) error {
+	for {
+		out, err := app.sqs.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
+			QueueUrl:            &app.entryQueueURL,
+			MaxNumberOfMessages: int32(maxNumberOfMessages),
+			WaitTimeSeconds:     int32(waitTimeSeconds),
+		})
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			app.logger.Error("[orders-entry-queue] Error receiving message from entry queue", "error", err)
+
+			select {
+			case <-time.After(time.Second * 2):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			continue
+		}
+
+		for _, msg := range out.Messages {
+			var envelope Envelope
+			if err := json.Unmarshal([]byte(*msg.Body), &envelope); err != nil {
+				app.logger.Error("[orders-entry-queue] Error decoding queue's message", "message_id", *msg.MessageId, "error", err)
+				continue
+			}
+
+			if err := app.persistOrder(ctx, envelope.Payload); err != nil {
+				app.logger.Error("[orders-entry-queue] Error persisting order", "message_id", *msg.MessageId, "order_id", envelope.Payload.OrderID, "error", err)
+				continue
+			}
+			app.logger.Info("[orders-entry-queue] Order persisted successfully", "message_id", *msg.MessageId, "order_id", envelope.Payload.OrderID)
+
+			if _, err := app.sqs.DeleteMessage(ctx, &sqs.DeleteMessageInput{
+				QueueUrl:      &app.entryQueueURL,
+				ReceiptHandle: msg.ReceiptHandle,
+			}); err != nil {
+				app.logger.Error("[orders-entry-queue] Error while deleteing processed message from queue", "message_id", *msg.MessageId, "error", err)
+				continue
+			}
+			app.logger.Info("[orders-entry-queue] Message deleted from queue successfully", "message_id", *msg.MessageId)
+		}
+	}
 }
 
 func resolveQueueURL(ctx context.Context, client *sqs.Client, name string) (string, error) {
