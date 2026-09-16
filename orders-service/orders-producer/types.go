@@ -17,8 +17,7 @@ type OrderItem struct {
 }
 
 type OrderPlacedPayload struct {
-	OrderID     string      `json:"order_id"`
-	CustomerID  string      `json:"customer_id"`
-	Items       []OrderItem `json:"items"`
-	TotalAmount float64     `json:"total_amount"`
+	OrderID    string      `json:"order_id"`
+	CustomerID string      `json:"customer_id"`
+	Items      []OrderItem `json:"items"`
 }

@@ -17,19 +17,10 @@ func wrapEnvelope(payload OrderPlacedPayload) Envelope {
 }
 
 func newRandomOrder() OrderPlacedPayload {
-	var items []OrderItem = generateRandomItems()
-
 	return OrderPlacedPayload{
 		OrderID:    uuid.New().String(),
 		CustomerID: uuid.New().String(),
-		Items:      items,
-		TotalAmount: func() float64 {
-			var total float64
-			for _, item := range items {
-				total += item.UnitPrice * float64(item.Quantity)
-			}
-			return total
-		}(),
+		Items:      generateRandomItems(),
 	}
 }
 
