@@ -2,10 +2,15 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"uuid"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+var ErrOrderNotFound = errors.New("[database] Order not found")
 
 func (app *app) persistOrder(ctx context.Context, payload OrderPlacedPayload) error {
 	transaction, err := app.db.Begin(ctx)
@@ -14,7 +19,12 @@ func (app *app) persistOrder(ctx context.Context, payload OrderPlacedPayload) er
 	}
 	defer transaction.Rollback(ctx)
 
-	tag, err := transaction.Exec(ctx, `INSERT INTO orders (order_id, customer_id, total_amount) VALUES ($1, $2, $3) ON CONFLICT (order_id) DO NOTHING`, payload.OrderID, payload.CustomerID, payload.TotalAmount)
+	var totalAmount float64
+	for _, item := range payload.Items {
+		totalAmount += item.UnitPrice * float64(item.Quantity)
+	}
+
+	tag, err := transaction.Exec(ctx, `INSERT INTO orders (order_id, customer_id, total_amount) VALUES ($1, $2, $3) ON CONFLICT (order_id) DO NOTHING`, payload.OrderID, payload.CustomerID, totalAmount)
 	if err != nil {
 		return fmt.Errorf("[database] Error inserting order: %w", err)
 	}
@@ -36,4 +46,68 @@ func (app *app) persistOrder(ctx context.Context, payload OrderPlacedPayload) er
 	}
 
 	return transaction.Commit(ctx)
+}
+
+func (app *app) orderExists(ctx context.Context, orderID string) (bool, error) {
+	var exists bool
+	if err := app.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM orders WHERE order_id = $1)`, orderID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("[database] Error checking existence of order %s: %w", orderID, err)
+	}
+	return exists, nil
+}
+
+func (app *app) retrieveOrder(ctx context.Context, orderID pgtype.UUID) (OrderDTO, error) {
+	var dto OrderDTO
+	query := `
+		SELECT ordr.order_id, ordr.customer_id, ordr.status, ordr.total_amount, ordr.rejection_reason, ordr.created_at, ordr.updated_at,
+		       items.sku, items.quantity, items.unit_price
+		FROM orders ordr
+		INNER JOIN order_items items
+		ON items.order_id = ordr.order_id
+		WHERE ordr.order_id = $1`
+
+	rows, err := app.db.Query(ctx, query, orderID)
+	if err != nil {
+		return OrderDTO{}, fmt.Errorf("[database] Error querying order %s: %w", orderID, err)
+	}
+	defer rows.Close()
+
+	found := false
+	for rows.Next() {
+		var item OrderItem
+		if err := rows.Scan(&dto.OrderID, &dto.CustomerID, &dto.OrderStatus, &dto.TotalAmount, &dto.RejectionReason, &dto.CreatedAt, &dto.UpdatedAt,
+			&item.SKU, &item.Quantity, &item.UnitPrice); err != nil {
+			return OrderDTO{}, fmt.Errorf("[database] Error scanning order %s: %w", orderID, err)
+		}
+		dto.Items = append(dto.Items, item)
+		found = true
+	}
+
+	if err := rows.Err(); err != nil {
+		return OrderDTO{}, fmt.Errorf("[database] Error iterating rows for order %s: %w", orderID, err)
+	}
+
+	if !found {
+		return OrderDTO{}, ErrOrderNotFound
+	}
+
+	return dto, nil
+}
+
+func (app *app) updateOrderStatus(ctx context.Context, orderID pgtype.UUID, status OrderStatus, rejectionReason *string) error {
+	query := `
+		UPDATE orders
+		SET status = $1, rejection_reason = $2, updated_at = NOW()
+		WHERE order_id = $3`
+
+	tag, err := app.db.Exec(ctx, query, status, rejectionReason, orderID)
+	if err != nil {
+		return fmt.Errorf("[database] Error updating order %s status: %w", orderID, err)
+	}
+
+	if tag.RowsAffected() == 0 {
+		return ErrOrderNotFound
+	}
+
+	return nil
 }
