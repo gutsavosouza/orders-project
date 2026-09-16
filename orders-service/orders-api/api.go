@@ -21,7 +21,7 @@ func mount(app *app) http.Handler {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
 
-	// r.POST("/orders", app.handleCreateOrders)
+	r.POST("/orders", app.handleCreateOrders)
 	// r.GET("/orders/:id", app.handleGetOrderByID)
 
 	return r
