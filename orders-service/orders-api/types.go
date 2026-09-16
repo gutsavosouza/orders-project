@@ -13,16 +13,15 @@ type Envelope struct {
 }
 
 type OrderItem struct {
-	SKU       string  `json:"sku"`
-	Quantity  int     `json:"quantity"`
-	UnitPrice float64 `json:"unit_price"`
+	SKU       string  `json:"sku" binding:"required"`
+	Quantity  int     `json:"quantity" binding:"required,gt=0"`
+	UnitPrice float64 `json:"unit_price" binding:"required,gt=0"`
 }
 
 type OrderPlacedPayload struct {
-	OrderID     string      `json:"order_id"`
-	CustomerID  string      `json:"customer_id"`
-	Items       []OrderItem `json:"items"`
-	TotalAmount float64     `json:"total_amount"`
+	OrderID    string      `json:"order_id" binding:"required,uuid4"`
+	CustomerID string      `json:"customer_id" binding:"required,uuid4"`
+	Items      []OrderItem `json:"items" binding:"required,min=1,dive"`
 }
 
 type OrderRecord struct {
@@ -33,14 +32,6 @@ type OrderRecord struct {
 	RejectionReason *string     `json:"rejection_reason"`
 	CreatedAt       time.Time   `json:"created_at"`
 	UpdatedAt       time.Time   `json:"updated_at"`
-}
-
-type OrderItemRecord struct {
-	OrderItemID string  `json:"order_item_id"`
-	OrderID     string  `json:"order_id"`
-	SKU         string  `json:"sku"`
-	Quantity    int     `json:"quantity"`
-	UnitPrice   float64 `json:"unit_price"`
 }
 
 type OrderStatus string
@@ -54,5 +45,5 @@ const (
 
 type OrderDTO struct {
 	OrderRecord
-	Items []OrderItemRecord `json:"items"`
+	Items []OrderItem `json:"items"`
 }
