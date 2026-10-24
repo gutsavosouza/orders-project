@@ -4,12 +4,12 @@ import (
 	"time"
 )
 
-type Envelope struct {
-	MessageID   string             `json:"message_id"`
-	MessageType string             `json:"message_type"`
-	ProducedAt  time.Time          `json:"produced_at"`
-	Source      string             `json:"source"`
-	Payload     OrderPlacedPayload `json:"payload"`
+type Envelope[T any] struct {
+	MessageID   string    `json:"message_id"`
+	MessageType string    `json:"message_type"`
+	ProducedAt  time.Time `json:"produced_at"`
+	Source      string    `json:"source"`
+	Payload     T         `json:"payload"`
 }
 
 type OrderItem struct {
@@ -22,6 +22,12 @@ type OrderPlacedPayload struct {
 	OrderID    string      `json:"order_id" binding:"required,uuid4" example:"51248c84-2fa0-40b7-a3fa-708b0035b7ea"`
 	CustomerID string      `json:"customer_id" binding:"required,uuid4" example:"9b2f6c1e-4a7d-4c3e-8f21-6d5a0b7e3c94"`
 	Items      []OrderItem `json:"items" binding:"required,min=1,dive"`
+}
+
+type InventoryCheckCompletedPayload struct {
+	OrderID         string      `json:"order_id"`
+	Status          OrderStatus `json:"status"`
+	RejectionReason *string     `json:"rejection_reason"`
 }
 
 type OrderRecord struct {

@@ -48,7 +48,11 @@ func main() {
 	gp, ctx := errgroup.WithContext(ctx)
 
 	gp.Go(func() error {
-		return app.pollEntryQueue(ctx, 10, 20)
+		return app.pollQueue(ctx, "orders-entry-queue", app.entryQueueURL, 10, 20, app.handleEntryMessage)
+	})
+
+	gp.Go(func() error {
+		return app.pollQueue(ctx, "orders-update-queue", app.updateQueueURL, 10, 20, app.handleUpdateMessage)
 	})
 
 	gp.Go(func() error {

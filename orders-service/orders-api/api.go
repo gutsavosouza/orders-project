@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -13,6 +12,7 @@ import (
 	awsSDKConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -57,10 +57,13 @@ func (app *app) run(ctx context.Context, handler http.Handler) error {
 	return err
 }
 
-func (app *app) pollEntryQueue(ctx context.Context, maxNumberOfMessages, waitTimeSeconds int) error {
+type messageHandler func(ctx context.Context, msg sqstypes.Message) error
+
+func (app *app) pollQueue(ctx context.Context, queueName, queueURL string, maxNumberOfMessages, waitTimeSeconds int, handle messageHandler) error {
+	prefix := "[" + queueName + "]"
 	for {
 		out, err := app.sqs.ReceiveMessage(ctx, &sqs.ReceiveMessageInput{
-			QueueUrl:            &app.entryQueueURL,
+			QueueUrl:            &queueURL,
 			MaxNumberOfMessages: int32(maxNumberOfMessages),
 			WaitTimeSeconds:     int32(waitTimeSeconds),
 		})
@@ -68,7 +71,7 @@ func (app *app) pollEntryQueue(ctx context.Context, maxNumberOfMessages, waitTim
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			app.logger.Error("[orders-entry-queue] Error receiving message from entry queue", "error", err)
+			app.logger.Error(prefix+" Error receiving message from queue", "error", err)
 
 			select {
 			case <-time.After(time.Second * 2):
@@ -79,26 +82,19 @@ func (app *app) pollEntryQueue(ctx context.Context, maxNumberOfMessages, waitTim
 		}
 
 		for _, msg := range out.Messages {
-			var envelope Envelope
-			if err := json.Unmarshal([]byte(*msg.Body), &envelope); err != nil {
-				app.logger.Error("[orders-entry-queue] Error decoding queue's message", "message_id", *msg.MessageId, "error", err)
+			if err := handle(ctx, msg); err != nil {
+				app.logger.Error(prefix+" Error processing message, leaving it for redelivery", "message_id", *msg.MessageId, "error", err)
 				continue
 			}
-
-			if err := app.persistOrder(ctx, envelope.Payload); err != nil {
-				app.logger.Error("[orders-entry-queue] Error persisting order", "message_id", *msg.MessageId, "order_id", envelope.Payload.OrderID, "error", err)
-				continue
-			}
-			app.logger.Info("[orders-entry-queue] Order persisted successfully", "message_id", *msg.MessageId, "order_id", envelope.Payload.OrderID)
 
 			if _, err := app.sqs.DeleteMessage(ctx, &sqs.DeleteMessageInput{
-				QueueUrl:      &app.entryQueueURL,
+				QueueUrl:      &queueURL,
 				ReceiptHandle: msg.ReceiptHandle,
 			}); err != nil {
-				app.logger.Error("[orders-entry-queue] Error while deleteing processed message from queue", "message_id", *msg.MessageId, "error", err)
+				app.logger.Error(prefix+" Error while deleting processed message from queue", "message_id", *msg.MessageId, "error", err)
 				continue
 			}
-			app.logger.Info("[orders-entry-queue] Message deleted from queue successfully", "message_id", *msg.MessageId)
+			app.logger.Info(prefix+" Message deleted from queue successfully", "message_id", *msg.MessageId)
 		}
 	}
 }

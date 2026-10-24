@@ -5,8 +5,8 @@ import (
 	"uuid"
 )
 
-func wrapEnvelope(payload OrderPlacedPayload) Envelope {
-	return Envelope{
+func wrapEnvelope(payload OrderPlacedPayload) Envelope[OrderPlacedPayload] {
+	return Envelope[OrderPlacedPayload]{
 		MessageID:   uuid.New().String(),
 		MessageType: "OrderPlaced",
 		ProducedAt:  time.Now(),

@@ -6,11 +6,12 @@ import (
 	"fmt"
 
 	"uuid"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
-var ErrOrderNotFound = errors.New("[database] Order not found")
+var (
+	ErrOrderNotFound         = errors.New("[database] Order not found")
+	ErrOrderAlreadyFinalized = errors.New("[database] Order is no longer PENDING")
+)
 
 func (app *app) persistOrder(ctx context.Context, payload OrderPlacedPayload) error {
 	transaction, err := app.db.Begin(ctx)
@@ -94,11 +95,11 @@ func (app *app) retrieveOrder(ctx context.Context, orderID string) (OrderDTO, er
 	return dto, nil
 }
 
-func (app *app) updateOrderStatus(ctx context.Context, orderID pgtype.UUID, status OrderStatus, rejectionReason *string) error {
+func (app *app) updateOrderStatus(ctx context.Context, orderID string, status OrderStatus, rejectionReason *string) error {
 	query := `
 		UPDATE orders
 		SET status = $1, rejection_reason = $2, updated_at = NOW()
-		WHERE order_id = $3`
+		WHERE order_id = $3 AND status = 'PENDING'`
 
 	tag, err := app.db.Exec(ctx, query, status, rejectionReason, orderID)
 	if err != nil {
@@ -106,6 +107,13 @@ func (app *app) updateOrderStatus(ctx context.Context, orderID pgtype.UUID, stat
 	}
 
 	if tag.RowsAffected() == 0 {
+		exists, err := app.orderExists(ctx, orderID)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return ErrOrderAlreadyFinalized
+		}
 		return ErrOrderNotFound
 	}
 
