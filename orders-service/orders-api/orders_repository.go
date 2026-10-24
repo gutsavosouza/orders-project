@@ -56,7 +56,7 @@ func (app *app) orderExists(ctx context.Context, orderID string) (bool, error) {
 	return exists, nil
 }
 
-func (app *app) retrieveOrder(ctx context.Context, orderID pgtype.UUID) (OrderDTO, error) {
+func (app *app) retrieveOrder(ctx context.Context, orderID string) (OrderDTO, error) {
 	var dto OrderDTO
 	query := `
 		SELECT ordr.order_id, ordr.customer_id, ordr.status, ordr.total_amount, ordr.rejection_reason, ordr.created_at, ordr.updated_at,
@@ -110,4 +110,38 @@ func (app *app) updateOrderStatus(ctx context.Context, orderID pgtype.UUID, stat
 	}
 
 	return nil
+}
+
+func (app *app) listOrders(ctx context.Context, page, pageSize int) ([]OrderRecord, int, error) {
+	var total int
+	if err := app.db.QueryRow(ctx, `SELECT COUNT(*) FROM orders`).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("[database] Error counting orders: %w", err)
+	}
+
+	query := `
+		SELECT order_id, customer_id, status, total_amount, rejection_reason, created_at, updated_at
+		FROM orders
+		ORDER BY created_at DESC, order_id DESC
+		LIMIT $1 OFFSET $2`
+
+	rows, err := app.db.Query(ctx, query, pageSize, (page-1)*pageSize)
+	if err != nil {
+		return nil, 0, fmt.Errorf("[database] Error listing orders: %w", err)
+	}
+	defer rows.Close()
+
+	orders := make([]OrderRecord, 0, pageSize)
+	for rows.Next() {
+		var record OrderRecord
+		if err := rows.Scan(&record.OrderID, &record.CustomerID, &record.OrderStatus, &record.TotalAmount, &record.RejectionReason, &record.CreatedAt, &record.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("[database] Error scanning order row: %w", err)
+		}
+		orders = append(orders, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("[database] Error iterating order rows: %w", err)
+	}
+
+	return orders, total, nil
 }

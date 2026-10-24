@@ -28,7 +28,8 @@ func mount(app *app) http.Handler {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	r.POST("/orders", app.handleCreateOrders)
-	// r.GET("/orders/:id", app.handleGetOrderByID)
+	r.GET("/orders", app.handleListOrders)
+	r.GET("/orders/:id", app.handleGetOrderByID)
 
 	return r
 }

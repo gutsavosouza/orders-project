@@ -55,3 +55,19 @@ type createOrderResponse struct {
 type errorResponse struct {
 	Error string `json:"error" example:"order with that id already exists"`
 }
+
+type getOrderDTO struct {
+	ID string `uri:"id" binding:"required,uuid"`
+}
+
+type listOrdersQuery struct {
+	Page     int `form:"page,default=1" binding:"gte=1"`
+	PageSize int `form:"page_size,default=20" binding:"gte=1,lte=100"`
+}
+
+type listOrdersResponse struct {
+	Orders   []OrderRecord `json:"orders"`
+	Page     int           `json:"page" example:"1"`
+	PageSize int           `json:"page_size" example:"20"`
+	Total    int           `json:"total" example:"137"`
+}
