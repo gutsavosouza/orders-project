@@ -11,6 +11,9 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// @title Orders API
+// @version 0.1
+// @BasePath /
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatalf("loading .env %v", err)

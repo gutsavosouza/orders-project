@@ -1,0 +1,79 @@
+basePath: /
+definitions:
+  main.OrderItem:
+    properties:
+      quantity:
+        example: 7
+        type: integer
+      sku:
+        example: SKU-1010
+        type: string
+      unit_price:
+        example: 77.77
+        type: number
+    required:
+    - quantity
+    - sku
+    - unit_price
+    type: object
+  main.OrderPlacedPayload:
+    properties:
+      customer_id:
+        example: 9b2f6c1e-4a7d-4c3e-8f21-6d5a0b7e3c94
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/main.OrderItem'
+        minItems: 1
+        type: array
+      order_id:
+        example: 51248c84-2fa0-40b7-a3fa-708b0035b7ea
+        type: string
+    required:
+    - customer_id
+    - items
+    - order_id
+    type: object
+  main.createOrderResponse:
+    properties:
+      order_id:
+        example: 3f1c2a9e-7b4d-4e8a-9c21-5d6f0a1b2c3d
+        type: string
+    type: object
+  main.errorResponse:
+    properties:
+      error:
+        example: order with that id already exists
+        type: string
+    type: object
+info:
+  contact: {}
+  title: Orders API
+  version: "0.1"
+paths:
+  /orders:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Order to be created
+        in: body
+        name: order
+        required: true
+        schema:
+          $ref: '#/definitions/main.OrderPlacedPayload'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/main.createOrderResponse'
+        default:
+          description: ""
+          schema:
+            $ref: '#/definitions/main.errorResponse'
+      summary: Create an order entry
+      tags:
+      - orders
+swagger: "2.0"

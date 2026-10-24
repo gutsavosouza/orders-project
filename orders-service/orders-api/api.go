@@ -15,11 +15,17 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	_ "github.com/gutsavosouza/orders-api/docs"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func mount(app *app) http.Handler {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
+
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	r.POST("/orders", app.handleCreateOrders)
 	// r.GET("/orders/:id", app.handleGetOrderByID)
@@ -113,8 +119,8 @@ func newApp(ctx context.Context, cfg appConfig) (*app, error) {
 	}
 
 	pool, err := pgxpool.New(ctx, cfg.db.dsn)
-	if err != nil {
-		return nil, fmt.Errorf("error connecting to database: %v", err)
+	if err := pool.Ping(ctx); err != nil {
+		return nil, fmt.Errorf("error pinging database: %w", err)
 	}
 
 	sqsClient := sqs.NewFromConfig(awsConfig)

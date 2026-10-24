@@ -13,14 +13,14 @@ type Envelope struct {
 }
 
 type OrderItem struct {
-	SKU       string  `json:"sku" binding:"required"`
-	Quantity  int     `json:"quantity" binding:"required,gt=0"`
-	UnitPrice float64 `json:"unit_price" binding:"required,gt=0"`
+	SKU       string  `json:"sku" binding:"required" example:"SKU-1010"`
+	Quantity  int     `json:"quantity" binding:"required,gt=0" example:"7"`
+	UnitPrice float64 `json:"unit_price" binding:"required,gt=0" example:"77.77"`
 }
 
 type OrderPlacedPayload struct {
-	OrderID    string      `json:"order_id" binding:"required,uuid4"`
-	CustomerID string      `json:"customer_id" binding:"required,uuid4"`
+	OrderID    string      `json:"order_id" binding:"required,uuid4" example:"51248c84-2fa0-40b7-a3fa-708b0035b7ea"`
+	CustomerID string      `json:"customer_id" binding:"required,uuid4" example:"9b2f6c1e-4a7d-4c3e-8f21-6d5a0b7e3c94"`
 	Items      []OrderItem `json:"items" binding:"required,min=1,dive"`
 }
 
@@ -46,4 +46,12 @@ const (
 type OrderDTO struct {
 	OrderRecord
 	Items []OrderItem `json:"items"`
+}
+
+type createOrderResponse struct {
+	OrderID string `json:"order_id" example:"3f1c2a9e-7b4d-4e8a-9c21-5d6f0a1b2c3d"`
+}
+
+type errorResponse struct {
+	Error string `json:"error" example:"order with that id already exists"`
 }
