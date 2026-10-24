@@ -1,5 +1,26 @@
 basePath: /
 definitions:
+  main.OrderDTO:
+    properties:
+      created_at:
+        type: string
+      customer_id:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/main.OrderItem'
+        type: array
+      order_id:
+        type: string
+      rejection_reason:
+        type: string
+      status:
+        $ref: '#/definitions/main.OrderStatus'
+      total_amount:
+        type: number
+      updated_at:
+        type: string
+    type: object
   main.OrderItem:
     properties:
       quantity:
@@ -34,6 +55,35 @@ definitions:
     - items
     - order_id
     type: object
+  main.OrderRecord:
+    properties:
+      created_at:
+        type: string
+      customer_id:
+        type: string
+      order_id:
+        type: string
+      rejection_reason:
+        type: string
+      status:
+        $ref: '#/definitions/main.OrderStatus'
+      total_amount:
+        type: number
+      updated_at:
+        type: string
+    type: object
+  main.OrderStatus:
+    enum:
+    - PENDING
+    - CONFIRMED
+    - REJECTED
+    - FAILED
+    type: string
+    x-enum-varnames:
+    - PENDING
+    - CONFIRMED
+    - REJECTED
+    - FAILED
   main.createOrderResponse:
     properties:
       order_id:
@@ -46,12 +96,54 @@ definitions:
         example: order with that id already exists
         type: string
     type: object
+  main.listOrdersResponse:
+    properties:
+      orders:
+        items:
+          $ref: '#/definitions/main.OrderRecord'
+        type: array
+      page:
+        example: 1
+        type: integer
+      page_size:
+        example: 20
+        type: integer
+      total:
+        example: 137
+        type: integer
+    type: object
 info:
   contact: {}
   title: Orders API
   version: "0.1"
 paths:
   /orders:
+    get:
+      parameters:
+      - default: 1
+        description: Page number, starting at 1
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Orders per page (1-100)
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.listOrdersResponse'
+        default:
+          description: ""
+          schema:
+            $ref: '#/definitions/main.errorResponse'
+      summary: List orders, newest first
+      tags:
+      - orders
     post:
       consumes:
       - application/json
@@ -74,6 +166,28 @@ paths:
           schema:
             $ref: '#/definitions/main.errorResponse'
       summary: Create an order entry
+      tags:
+      - orders
+  /orders/{id}:
+    get:
+      parameters:
+      - description: Order ID (uuid)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.OrderDTO'
+        default:
+          description: ""
+          schema:
+            $ref: '#/definitions/main.errorResponse'
+      summary: Get an order by ID
       tags:
       - orders
 swagger: "2.0"
