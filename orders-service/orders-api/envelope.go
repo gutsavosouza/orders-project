@@ -5,10 +5,10 @@ import (
 	"uuid"
 )
 
-func wrapEnvelope(payload OrderPlacedPayload) Envelope[OrderPlacedPayload] {
-	return Envelope[OrderPlacedPayload]{
+func wrapEnvelope[T any](messageType string, payload T) Envelope[T] {
+	return Envelope[T]{
 		MessageID:   uuid.New().String(),
-		MessageType: "OrderPlaced",
+		MessageType: messageType,
 		ProducedAt:  time.Now(),
 		Source:      "orders-api",
 		Payload:     payload,

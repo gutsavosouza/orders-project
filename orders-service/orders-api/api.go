@@ -133,11 +133,11 @@ func newApp(ctx context.Context, cfg appConfig) (*app, error) {
 		return nil, err
 	}
 
-	pendingTopicARN := fmt.Sprintf("arn:aws:sns:%s:%s:%s", cfg.awsRegion, cfg.awsAccountID, cfg.sns.ordersRequestTopicName)
+	requestTopicARN := fmt.Sprintf("arn:aws:sns:%s:%s:%s", cfg.awsRegion, cfg.awsAccountID, cfg.sns.ordersRequestTopicName)
 	if _, err := snsClient.GetTopicAttributes(ctx, &sns.GetTopicAttributesInput{
-		TopicArn: &pendingTopicARN,
+		TopicArn: &requestTopicARN,
 	}); err != nil {
-		return nil, fmt.Errorf("error verifying sns topic %q: %w", pendingTopicARN, err)
+		return nil, fmt.Errorf("error verifying sns topic %q: %w", requestTopicARN, err)
 	}
 
 	return &app{
@@ -146,7 +146,7 @@ func newApp(ctx context.Context, cfg appConfig) (*app, error) {
 		sns:             snsClient,
 		entryQueueURL:   entryQueueURL,
 		updateQueueURL:  updateQueueURL,
-		pendingTopicARN: pendingTopicARN,
+		requestTopicARN: requestTopicARN,
 		logger:          slog.New(slog.NewTextHandler(os.Stdout, nil)),
 		addr:            cfg.addr,
 	}, nil
@@ -158,7 +158,7 @@ type app struct {
 	sns             *sns.Client
 	entryQueueURL   string
 	updateQueueURL  string
-	pendingTopicARN string
+	requestTopicARN string
 	logger          *slog.Logger
 	addr            string
 }

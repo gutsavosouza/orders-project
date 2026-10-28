@@ -20,6 +20,11 @@ func (app *app) handleEntryMessage(ctx context.Context, msg sqstypes.Message) er
 	}
 	app.logger.Info("[orders-entry-queue] Order persisted successfully", "message_id", *msg.MessageId, "order_id", envelope.Payload.OrderID)
 
+	if err := app.publishInventoryCheckRequested(ctx, envelope.Payload); err != nil {
+		return fmt.Errorf("publishing inventory check for order %s: %w", envelope.Payload.OrderID, err)
+	}
+	app.logger.Info("[orders-request-topic] Inventory check requested", "message_id", *msg.MessageId, "order_id", envelope.Payload.OrderID)
+
 	return nil
 }
 

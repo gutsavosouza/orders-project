@@ -38,7 +38,7 @@ func (app *app) handleCreateOrders(c *gin.Context) {
 		return
 	}
 
-	envelope := wrapEnvelope(payload)
+	envelope := wrapEnvelope("OrderPlaced", payload)
 	body, err := json.Marshal(envelope)
 	if err != nil {
 		app.logger.Error("[orders-api] Error marshaling envelope", "order_id", payload.OrderID, "error", err)

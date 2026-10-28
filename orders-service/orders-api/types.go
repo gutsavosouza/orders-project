@@ -24,6 +24,16 @@ type OrderPlacedPayload struct {
 	Items      []OrderItem `json:"items" binding:"required,min=1,dive"`
 }
 
+type InventoryCheckRequestedPayload struct {
+	OrderID string          `json:"order_id"`
+	Items   []InventoryItem `json:"items"`
+}
+
+type InventoryItem struct {
+	SKU      string `json:"sku"`
+	Quantity int    `json:"quantity"`
+}
+
 type InventoryCheckCompletedPayload struct {
 	OrderID         string      `json:"order_id"`
 	Status          OrderStatus `json:"status"`
