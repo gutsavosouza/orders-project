@@ -1,7 +1,7 @@
 -- +goose Up
 CREATE TYPE order_status AS ENUM ('PENDING', 'CONFIRMED', 'REJECTED', 'FAILED');
 
-CREATE TABLE IF  NOT EXISTS orders (
+CREATE TABLE IF NOT EXISTS orders (
     order_id UUID PRIMARY KEY,
     customer_id UUID NOT NULL,
     status order_status NOT NULL DEFAULT 'PENDING',
