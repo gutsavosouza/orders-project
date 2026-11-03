@@ -25,7 +25,7 @@ func main() {
 	cfg := appConfig{
 		addr: os.Getenv("ADDR"),
 		db: dbConfig{
-			dsn: os.Getenv("DATABASE_URL"),
+			dsn: os.Getenv("ORDER_DATABASE_URL"),
 		},
 		sqs: sqsConfig{
 			orderEntryQueueName:  os.Getenv("ORDERS_ENTRY_QUEUE_NAME"),
